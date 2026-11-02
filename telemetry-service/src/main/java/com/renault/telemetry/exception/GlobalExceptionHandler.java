@@ -2,6 +2,7 @@ package com.renault.telemetry.exception;
 
 import com.renault.telemetry.dto.response.ApiErrorResponse;
 import com.renault.telemetry.dto.response.ValidationError;
+import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.List;
 
+@Hidden
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
