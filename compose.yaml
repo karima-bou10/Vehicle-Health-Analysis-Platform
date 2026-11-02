@@ -1,0 +1,93 @@
+services:
+
+  telemetry-db:
+    image: postgres:16-alpine
+    container_name: telemetry-db
+    environment:
+      POSTGRES_DB: telemetry_db
+      POSTGRES_USER: telemetry_user
+      POSTGRES_PASSWORD: telemetry_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - telemetry-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ CMD-SHELL, "pg_isready -U telemetry_user -d telemetry_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  analysis-db:
+    image: postgres:16-alpine
+    container_name: analysis-db
+    environment:
+      POSTGRES_DB: analysis_db
+      POSTGRES_USER: analysis_user
+      POSTGRES_PASSWORD: analysis_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - analysis-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ CMD-SHELL, "pg_isready -U analysis_user -d analysis_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  vehicle-analysis-service:
+    build:
+      context: ./vehicle-analysis-service
+      dockerfile: Dockerfile
+    image: vehicle-analysis-service:local
+    container_name: vehicle-analysis-service
+    environment:
+      SERVER_PORT: 8082
+      DATABASE_URL: jdbc:postgresql://analysis-db:5432/analysis_db
+      DATABASE_USERNAME: analysis_user
+      DATABASE_PASSWORD: analysis_password
+      RECALL_PROVIDER_URL: http://localhost:9090
+    ports:
+      - "8082:8082"
+    depends_on:
+      analysis-db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:8082/actuator/health]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  telemetry-service:
+    build:
+      context: ./telemetry-service
+      dockerfile: Dockerfile
+    image: telemetry-service:local
+    container_name: telemetry-service
+    environment:
+      SERVER_PORT: 8081
+      DATABASE_URL: jdbc:postgresql://telemetry-db:5432/telemetry_db
+      DATABASE_USERNAME: telemetry_user
+      DATABASE_PASSWORD: telemetry_password
+      VEHICLE_ANALYSIS_URL: http://vehicle-analysis-service:8082
+    ports:
+      - "8081:8081"
+    depends_on:
+      telemetry-db:
+        condition: service_healthy
+      vehicle-analysis-service:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:8081/actuator/health]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  telemetry-db-data:
+  analysis-db-data:
